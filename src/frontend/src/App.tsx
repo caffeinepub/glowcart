@@ -18,15 +18,18 @@ import {
 } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import {
+  Banknote,
   CheckCircle,
   ChevronRight,
   Clock,
+  CreditCard,
   MapPin,
   Minus,
   Package,
   Plus,
   Search,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   Star,
   Truck,
@@ -355,6 +358,7 @@ export default function App() {
   const [activeTrackId, setActiveTrackId] = useState("");
   const [orderSuccess, setOrderSuccess] = useState<{
     trackingId: string;
+    paymentMethod: "cod" | "upi" | "card";
   } | null>(null);
 
   // Checkout form
@@ -363,6 +367,11 @@ export default function App() {
     phone: "",
     address: "",
     pincode: "",
+    paymentMethod: "cod" as "cod" | "upi" | "card",
+    upiId: "",
+    cardNumber: "",
+    cardExpiry: "",
+    cardCvv: "",
   });
 
   const { data: orders = [], isLoading: ordersLoading } = useGetOrders();
@@ -417,6 +426,19 @@ export default function App() {
       toast.error("Please fill all fields");
       return;
     }
+    if (form.paymentMethod === "upi" && !form.upiId.trim()) {
+      toast.error("Please enter your UPI ID");
+      return;
+    }
+    if (
+      form.paymentMethod === "card" &&
+      (!form.cardNumber.trim() ||
+        !form.cardExpiry.trim() ||
+        !form.cardCvv.trim())
+    ) {
+      toast.error("Please fill all card details");
+      return;
+    }
     const items: [string, bigint][] = cart.map((i) => [
       i.productId,
       BigInt(i.quantity),
@@ -430,9 +452,19 @@ export default function App() {
         items,
         totalAmount: BigInt(cartTotal),
       });
-      setOrderSuccess({ trackingId });
+      setOrderSuccess({ trackingId, paymentMethod: form.paymentMethod });
       setCart([]);
-      setForm({ name: "", phone: "", address: "", pincode: "" });
+      setForm({
+        name: "",
+        phone: "",
+        address: "",
+        pincode: "",
+        paymentMethod: "cod",
+        upiId: "",
+        cardNumber: "",
+        cardExpiry: "",
+        cardCvv: "",
+      });
       toast.success("Order placed successfully!");
     } catch {
       toast.error("Failed to place order. Please try again.");
@@ -1195,6 +1227,22 @@ export default function App() {
                     {orderSuccess.trackingId}
                   </p>
                 </div>
+                <div
+                  className="p-3 rounded-lg text-sm"
+                  style={{
+                    background: "oklch(0.22 0.006 270)",
+                    border: "1px solid oklch(0.32 0.06 5 / 0.3)",
+                  }}
+                >
+                  <span className="text-muted-foreground">Payment: </span>
+                  <span className="text-rose-gold font-medium">
+                    {orderSuccess.paymentMethod === "upi"
+                      ? "UPI Payment"
+                      : orderSuccess.paymentMethod === "card"
+                        ? "Credit/Debit Card"
+                        : "Cash on Delivery"}
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Expected delivery in 4-7 business days via Delhivery or Ekart
                 </p>
@@ -1287,6 +1335,175 @@ export default function App() {
                     }
                     className="bg-input border-border"
                   />
+                </div>
+
+                {/* ── PAYMENT METHOD ── */}
+                <div className="space-y-3">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Payment Method
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          id: "cod",
+                          icon: Banknote,
+                          label: "Cash on Delivery",
+                          sub: "No extra charge",
+                        },
+                        {
+                          id: "upi",
+                          icon: Smartphone,
+                          label: "UPI Payment",
+                          sub: "GPay, PhonePe, Paytm",
+                        },
+                        {
+                          id: "card",
+                          icon: CreditCard,
+                          label: "Credit / Debit Card",
+                          sub: "Visa, Mastercard, RuPay",
+                        },
+                      ] as const
+                    ).map(({ id, icon: Icon, label, sub }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        data-ocid={`checkout.payment_${id}.toggle`}
+                        onClick={() =>
+                          setForm((f) => ({ ...f, paymentMethod: id }))
+                        }
+                        className="flex flex-col items-center gap-1 p-3 rounded-lg text-center transition-all"
+                        style={{
+                          background:
+                            form.paymentMethod === id
+                              ? "oklch(0.22 0.06 5 / 0.3)"
+                              : "oklch(0.18 0.004 270)",
+                          border: `1.5px solid ${form.paymentMethod === id ? "oklch(0.63 0.10 5)" : "oklch(0.32 0.06 5 / 0.3)"}`,
+                        }}
+                      >
+                        <Icon
+                          className="h-5 w-5"
+                          style={{
+                            color:
+                              form.paymentMethod === id
+                                ? "oklch(0.63 0.10 5)"
+                                : "oklch(0.55 0.006 270)",
+                          }}
+                        />
+                        <span
+                          className="text-xs font-medium leading-tight"
+                          style={{
+                            color:
+                              form.paymentMethod === id
+                                ? "oklch(0.88 0.03 5)"
+                                : "oklch(0.77 0.006 270)",
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <span
+                          className="text-[10px] leading-tight"
+                          style={{ color: "oklch(0.55 0.006 270)" }}
+                        >
+                          {sub}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {form.paymentMethod === "upi" && (
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="upiId"
+                        className="text-xs uppercase tracking-wider text-muted-foreground"
+                      >
+                        UPI ID
+                      </Label>
+                      <Input
+                        id="upiId"
+                        data-ocid="checkout.upi.input"
+                        placeholder="yourname@upi"
+                        value={form.upiId}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, upiId: e.target.value }))
+                        }
+                        className="bg-input border-border"
+                      />
+                    </div>
+                  )}
+
+                  {form.paymentMethod === "card" && (
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="cardNumber"
+                          className="text-xs uppercase tracking-wider text-muted-foreground"
+                        >
+                          Card Number
+                        </Label>
+                        <Input
+                          id="cardNumber"
+                          data-ocid="checkout.card_number.input"
+                          placeholder="1234 5678 9012 3456"
+                          value={form.cardNumber}
+                          onChange={(e) =>
+                            setForm((f) => ({
+                              ...f,
+                              cardNumber: e.target.value,
+                            }))
+                          }
+                          className="bg-input border-border"
+                          maxLength={19}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="cardExpiry"
+                            className="text-xs uppercase tracking-wider text-muted-foreground"
+                          >
+                            Expiry
+                          </Label>
+                          <Input
+                            id="cardExpiry"
+                            data-ocid="checkout.card_expiry.input"
+                            placeholder="MM/YY"
+                            value={form.cardExpiry}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                cardExpiry: e.target.value,
+                              }))
+                            }
+                            className="bg-input border-border"
+                            maxLength={5}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="cardCvv"
+                            className="text-xs uppercase tracking-wider text-muted-foreground"
+                          >
+                            CVV
+                          </Label>
+                          <Input
+                            id="cardCvv"
+                            data-ocid="checkout.card_cvv.input"
+                            placeholder="CVV"
+                            value={form.cardCvv}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                cardCvv: e.target.value,
+                              }))
+                            }
+                            className="bg-input border-border"
+                            maxLength={4}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <Separator style={{ background: "oklch(0.32 0.06 5 / 0.3)" }} />
